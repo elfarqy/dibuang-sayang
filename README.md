@@ -4,3 +4,6 @@
 [setup-regular.sh](setup-regular.sh) Sets up a development stack (Docker, Node, VS Code) on a standard VPS with Nginx and HTTPS access.
 
 [setup-gpu-pod.sh](setup-gpu-pod.sh) Sets up a development stack (Postgres, Redis, Node, VS Code) on GPU pods/containers using Cloudflare Tunnel for access.
+
+
+[setup-plain.sh](setup-plain.sh) Sets up Git, Node.js (via NVM), pnpm, Docker, Docker Compose, Neovim, Cloudflared.
