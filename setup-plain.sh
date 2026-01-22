@@ -135,30 +135,9 @@ usermod -aG docker $REGULAR_USER
 ###############################################################################
 echo -e "\n${YELLOW}[5/6] Installing Neovim...${NC}"
 
-# Install latest stable Neovim from GitHub releases
-# (Replaces PPA method which requires software-properties-common)
-ARCH=$(dpkg --print-architecture)
-if [ "$ARCH" = "amd64" ]; then
-    echo "Downloading latest Neovim for amd64..."
-    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
-    rm -rf /opt/nvim
-    tar -C /opt -xzf nvim-linux-x86_64.tar.gz
-    mv /opt/nvim-linux-x86_64 /opt/nvim
-    ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
-    rm nvim-linux-x86_64.tar.gz
-elif [ "$ARCH" = "arm64" ]; then
-    echo "Downloading latest Neovim for arm64..."
-    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
-    rm -rf /opt/nvim
-    tar -C /opt -xzf nvim-linux-arm64.tar.gz
-    mv /opt/nvim-linux-arm64 /opt/nvim
-    ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
-    rm nvim-linux-arm64.tar.gz
-else
-    echo "Architecture $ARCH not supported for binary download. Installing from apt..."
-    apt-get update
-    apt-get install -y neovim
-fi
+# Install Neovim from default OS package manager
+apt-get update
+apt-get install -y neovim
 
 # Set nvim as default editor for the user
 sudo -u $REGULAR_USER bash -c "
