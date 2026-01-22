@@ -135,16 +135,27 @@ usermod -aG docker $REGULAR_USER
 ###############################################################################
 echo -e "\n${YELLOW}[5/6] Installing Neovim...${NC}"
 
-# Install latest stable Neovim from official repository
-apt-get install -y software-properties-common
-add-apt-repository -y ppa:neovim-ppa/stable || {
-    # Fallback: Install from Ubuntu repos if PPA fails
-    apt-get update
-    apt-get install -y neovim
-}
-
-# If PPA was added successfully, update and install
-if [ $? -eq 0 ]; then
+# Install latest stable Neovim from GitHub releases
+# (Replaces PPA method which requires software-properties-common)
+ARCH=$(dpkg --print-architecture)
+if [ "$ARCH" = "amd64" ]; then
+    echo "Downloading latest Neovim for amd64..."
+    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz
+    rm -rf /opt/nvim
+    tar -C /opt -xzf nvim-linux64.tar.gz
+    mv /opt/nvim-linux64 /opt/nvim
+    ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+    rm nvim-linux64.tar.gz
+elif [ "$ARCH" = "arm64" ]; then
+    echo "Downloading latest Neovim for arm64..."
+    curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-arm64.tar.gz
+    rm -rf /opt/nvim
+    tar -C /opt -xzf nvim-linux-arm64.tar.gz
+    mv /opt/nvim-linux-arm64 /opt/nvim
+    ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+    rm nvim-linux-arm64.tar.gz
+else
+    echo "Architecture $ARCH not supported for binary download. Installing from apt..."
     apt-get update
     apt-get install -y neovim
 fi
