@@ -26,7 +26,7 @@ echo -e "${GREEN}GPU Pod Development Stack Setup${NC}"
 echo -e "${GREEN}================================${NC}"
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Please run as root${NC}"
     exit 1
 fi
@@ -85,19 +85,19 @@ if pidof systemd > /dev/null 2>&1; then
     systemctl enable postgresql
 else
     echo -e "${YELLOW}Starting PostgreSQL without systemd...${NC}"
-    
+
     # Check if data directory is initialized
     if [ ! -f "$PG_DATA_DIR/PG_VERSION" ]; then
         echo -e "${YELLOW}PostgreSQL data directory not initialized. This is likely a fresh install.${NC}"
         echo -e "${YELLOW}Attempting to use existing installation...${NC}"
     fi
-    
+
     # Start PostgreSQL with explicit config
     su - postgres -c "$PG_BIN_DIR/postgres -D $PG_DATA_DIR -c config_file=$PG_CONF_DIR/postgresql.conf" > /tmp/postgres.log 2>&1 &
-    
+
     # Store PID
     PG_PID=$!
-    
+
     # Add to startup script for non-systemd environments
     POSTGRES_START_SCRIPT="/usr/local/bin/start-postgres.sh"
     cat > "$POSTGRES_START_SCRIPT" << EOFPG
@@ -127,22 +127,22 @@ echo ""
 if [ "$POSTGRES_RUNNING" = false ]; then
     echo -e "${RED}Error: PostgreSQL failed to start${NC}"
     echo -e "${YELLOW}Checking logs...${NC}"
-    
+
     if [ -f /tmp/postgres.log ]; then
         echo -e "${YELLOW}Last 20 lines of PostgreSQL log:${NC}"
         tail -20 /tmp/postgres.log
     fi
-    
+
     if [ -f "$PG_DATA_DIR/logfile" ]; then
         echo -e "${YELLOW}PostgreSQL data directory log:${NC}"
         tail -20 "$PG_DATA_DIR/logfile"
     fi
-    
+
     # Check if it's a port conflict
     if netstat -tln 2>/dev/null | grep -q ":5432"; then
         echo -e "${YELLOW}Port 5432 is already in use. Another PostgreSQL instance may be running.${NC}"
     fi
-    
+
     echo -e "${YELLOW}Trying alternative approach with pg_ctlcluster...${NC}"
     if command -v pg_ctlcluster &> /dev/null; then
         pg_ctlcluster $PG_VERSION main start
@@ -196,7 +196,7 @@ else
     else
         redis-server --daemonize yes
     fi
-    
+
     # Add to startup script
     REDIS_START_SCRIPT="/usr/local/bin/start-redis.sh"
     cat > "$REDIS_START_SCRIPT" << EOFREDIS
@@ -249,7 +249,7 @@ export NVM_DIR="$USER_HOME/.nvm"
 
 if command -v sudo &> /dev/null; then
     sudo -u $REGULAR_USER bash -c "
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
         export NVM_DIR=\"$USER_HOME/.nvm\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         nvm install --lts
@@ -259,7 +259,7 @@ if command -v sudo &> /dev/null; then
 else
     # Run as the user directly without sudo
     su - $REGULAR_USER << 'EOFNVM'
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
         export NVM_DIR="$HOME/.nvm"
         [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
         nvm install --lts
@@ -303,16 +303,16 @@ read -r CLONE_REPO
 if [[ "$CLONE_REPO" =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}Enter Git repository URL:${NC}"
     read -r GIT_URL
-    
+
     if [ -n "$GIT_URL" ]; then
         echo -e "${YELLOW}Enter Git username (leave empty if not required):${NC}"
         read -r GIT_USERNAME
-        
+
         if [ -n "$GIT_USERNAME" ]; then
             echo -e "${YELLOW}Enter Git password/token:${NC}"
             read -s GIT_PASSWORD
             echo ""
-            
+
             # Parse URL and inject credentials
             if [[ "$GIT_URL" =~ ^https:// ]]; then
                 GIT_URL_WITH_CREDS=$(echo "$GIT_URL" | sed "s|https://|https://${GIT_USERNAME}:${GIT_PASSWORD}@|")
@@ -322,18 +322,18 @@ if [[ "$CLONE_REPO" =~ ^[Yy]$ ]]; then
         else
             GIT_URL_WITH_CREDS="$GIT_URL"
         fi
-        
+
         # Extract repo name from URL
         REPO_NAME=$(basename "$GIT_URL" .git)
         PROJECT_DIR="$USER_HOME/projects/$REPO_NAME"
-        
+
         # Create projects directory and clone as regular user
         if command -v sudo &> /dev/null; then
             sudo -u $REGULAR_USER mkdir -p "$USER_HOME/projects"
         else
             su - $REGULAR_USER -c "mkdir -p $USER_HOME/projects"
         fi
-        
+
         echo -e "${YELLOW}Cloning repository...${NC}"
         # Run git clone entirely as the regular user
         if command -v sudo &> /dev/null; then
@@ -341,10 +341,10 @@ if [[ "$CLONE_REPO" =~ ^[Yy]$ ]]; then
         else
             su - $REGULAR_USER -c "git clone '$GIT_URL_WITH_CREDS' '$PROJECT_DIR'"
         fi
-        
+
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Repository cloned to $PROJECT_DIR${NC}"
-            
+
             # Setup git config for the user if provided
             if [ -n "$GIT_USERNAME" ]; then
                 if command -v sudo &> /dev/null; then
@@ -522,7 +522,7 @@ EOF
 else
     # Use supervisor or simple background process for containerized environments
     echo -e "${YELLOW}Systemd not available, using background process${NC}"
-    
+
     # Create startup script
     cat > "$USER_HOME/start-code-server.sh" << EOF
 #!/bin/bash
@@ -530,17 +530,17 @@ export NVM_DIR="$USER_HOME/.nvm"
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 /usr/bin/code-server --config $VSCODE_CONFIG_DIR/config.yaml
 EOF
-    
+
     chmod +x "$USER_HOME/start-code-server.sh"
     chown $REGULAR_USER:$REGULAR_USER "$USER_HOME/start-code-server.sh"
-    
+
     # Start code-server in background
     if command -v sudo &> /dev/null; then
         sudo -u $REGULAR_USER bash -c "nohup $USER_HOME/start-code-server.sh > $USER_HOME/code-server.log 2>&1 &"
     else
         su - $REGULAR_USER -c "nohup $USER_HOME/start-code-server.sh > $USER_HOME/code-server.log 2>&1 &"
     fi
-    
+
     # Add to bashrc for auto-start on login
     if ! grep -q "start-code-server.sh" "$USER_HOME/.bashrc"; then
         echo "" >> "$USER_HOME/.bashrc"
@@ -549,7 +549,7 @@ EOF
         echo "    nohup $USER_HOME/start-code-server.sh > $USER_HOME/code-server.log 2>&1 &" >> "$USER_HOME/.bashrc"
         echo "fi" >> "$USER_HOME/.bashrc"
     fi
-    
+
     echo -e "${GREEN}✓ VS Code Server configured (background process)${NC}"
     echo -e "${YELLOW}  Log file: $USER_HOME/code-server.log${NC}"
 fi

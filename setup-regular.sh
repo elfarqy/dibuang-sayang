@@ -27,7 +27,7 @@ echo -e "${GREEN}Development Stack Setup${NC}"
 echo -e "${GREEN}================================${NC}"
 
 # Check if running as root
-if [ "$EUID" -ne 0 ]; then 
+if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}Please run as root${NC}"
     exit 1
 fi
@@ -107,7 +107,7 @@ fi
 # Install NVM for the regular user
 export NVM_DIR="$USER_HOME/.nvm"
 sudo -u $REGULAR_USER bash -c "
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     export NVM_DIR=\"$USER_HOME/.nvm\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
     nvm install --lts
@@ -145,16 +145,16 @@ read -r CLONE_REPO
 if [[ "$CLONE_REPO" =~ ^[Yy]$ ]]; then
     echo -e "${YELLOW}Enter Git repository URL:${NC}"
     read -r GIT_URL
-    
+
     if [ -n "$GIT_URL" ]; then
         echo -e "${YELLOW}Enter Git username (leave empty if not required):${NC}"
         read -r GIT_USERNAME
-        
+
         if [ -n "$GIT_USERNAME" ]; then
             echo -e "${YELLOW}Enter Git password/token:${NC}"
             read -s GIT_PASSWORD
             echo ""
-            
+
             # Parse URL and inject credentials
             if [[ "$GIT_URL" =~ ^https:// ]]; then
                 GIT_URL_WITH_CREDS=$(echo "$GIT_URL" | sed "s|https://|https://${GIT_USERNAME}:${GIT_PASSWORD}@|")
@@ -164,21 +164,21 @@ if [[ "$CLONE_REPO" =~ ^[Yy]$ ]]; then
         else
             GIT_URL_WITH_CREDS="$GIT_URL"
         fi
-        
+
         # Extract repo name from URL
         REPO_NAME=$(basename "$GIT_URL" .git)
         PROJECT_DIR="$USER_HOME/projects/$REPO_NAME"
-        
+
         # Create projects directory and clone as regular user
         sudo -u $REGULAR_USER mkdir -p "$USER_HOME/projects"
-        
+
         echo -e "${YELLOW}Cloning repository...${NC}"
         # Run git clone entirely as the regular user
         sudo -u $REGULAR_USER bash -c "git clone '$GIT_URL_WITH_CREDS' '$PROJECT_DIR'"
-        
+
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}✓ Repository cloned to $PROJECT_DIR${NC}"
-            
+
             # Setup git config for the user if provided
             if [ -n "$GIT_USERNAME" ]; then
                 sudo -u $REGULAR_USER bash -c "cd '$PROJECT_DIR' && git config user.name '$GIT_USERNAME'"
@@ -315,7 +315,7 @@ server {
     # SSL certificates (will be configured by certbot or self-signed)
     ssl_certificate /etc/nginx/ssl/cert.pem;
     ssl_certificate_key /etc/nginx/ssl/key.pem;
-    
+
     # SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
@@ -333,7 +333,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        
+
         # WebSocket support
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

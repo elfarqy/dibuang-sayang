@@ -104,7 +104,7 @@ fi
 # Install NVM for the regular user
 export NVM_DIR="$USER_HOME/.nvm"
 sudo -u $REGULAR_USER bash -c "
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     export NVM_DIR=\"$USER_HOME/.nvm\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
     nvm install --lts
