@@ -27,12 +27,12 @@ case "$CPU_ARCH" in
     amd64)
         NVIM_ASSET="nvim-linux-x86_64.tar.gz"
         LAZYGIT_ARCH="x86_64"
-        BTOP_ASSET="btop-x86_64-linux-musl.tbz"
+        BTOP_ASSET="btop-x86_64-unknown-linux-musl.tar.gz"
         ;;
     arm64)
         NVIM_ASSET="nvim-linux-arm64.tar.gz"
         LAZYGIT_ARCH="arm64"
-        BTOP_ASSET="btop-aarch64-linux-musl.tbz"
+        BTOP_ASSET="btop-aarch64-unknown-linux-musl.tar.gz"
         ;;
     *)
         echo -e "${RED}Unsupported CPU architecture for binary downloads: $CPU_ARCH${NC}"
@@ -195,15 +195,16 @@ rm -f /tmp/lazygit.tar.gz /tmp/lazygit
 echo -e "${GREEN}✓ Lazygit installed (v${LAZYGIT_VERSION})${NC}"
 
 # --- btop (latest prebuilt musl static binary from GitHub) ---
-curl -fsSL -o /tmp/btop.tbz "https://github.com/aristocratos/btop/releases/latest/download/${BTOP_ASSET}"
+# Since v1.4.7 the asset is a .tar.gz (was .tbz) named <triple>-unknown-linux-musl.tar.gz.
+curl -fsSL -o /tmp/btop.tar.gz "https://github.com/aristocratos/btop/releases/latest/download/${BTOP_ASSET}"
 mkdir -p /tmp/btop-extract
-tar -xjf /tmp/btop.tbz -C /tmp/btop-extract --strip-components=1
-install -D -m 0755 /tmp/btop-extract/bin/btop /usr/local/bin/btop
-# btop looks for themes/locales under /usr/local/share/btop/
+tar -xzf /tmp/btop.tar.gz -C /tmp/btop-extract
+# The archive holds a single top-level dir (e.g. btop/) containing bin/ and themes/;
+# match it with a glob so we don't depend on the dir name or tar --strip-components quirks.
+install -D -m 0755 /tmp/btop-extract/*/bin/btop /usr/local/bin/btop
 mkdir -p /usr/local/share/btop
-cp -r /tmp/btop-extract/themes /usr/local/share/btop/
-cp -r /tmp/btop-extract/locales /usr/local/share/btop/ 2>/dev/null || true
-rm -rf /tmp/btop-extract /tmp/btop.tbz
+cp -r /tmp/btop-extract/*/themes /usr/local/share/btop/
+rm -rf /tmp/btop-extract /tmp/btop.tar.gz
 echo -e "${GREEN}✓ btop installed${NC}"
 
 ###############################################################################
