@@ -180,6 +180,32 @@ sudo -u $REGULAR_USER bash -c "
 echo -e "${GREEN}✓ Neovim installed ($(nvim --version | head -n1))${NC}"
 
 ###############################################################################
+# 6. Install Lazygit and btop
+###############################################################################
+echo -e "\n${YELLOW}[6/8] Installing Lazygit and btop...${NC}"
+
+# --- Lazygit (latest release from GitHub) ---
+# The version is embedded in the asset filename, so fetch it from the API first.
+LAZYGIT_VERSION=$(curl -fsSL "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')
+curl -fsSL -o /tmp/lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_${LAZYGIT_ARCH}.tar.gz"
+tar -xzf /tmp/lazygit.tar.gz -C /tmp lazygit
+install -m 0755 /tmp/lazygit /usr/local/bin/lazygit
+rm -f /tmp/lazygit.tar.gz /tmp/lazygit
+echo -e "${GREEN}✓ Lazygit installed (v${LAZYGIT_VERSION})${NC}"
+
+# --- btop (latest prebuilt musl static binary from GitHub) ---
+curl -fsSL -o /tmp/btop.tbz "https://github.com/aristocratos/btop/releases/latest/download/${BTOP_ASSET}"
+mkdir -p /tmp/btop-extract
+tar -xjf /tmp/btop.tbz -C /tmp/btop-extract --strip-components=1
+install -D -m 0755 /tmp/btop-extract/bin/btop /usr/local/bin/btop
+# btop looks for themes/locales under /usr/local/share/btop/
+mkdir -p /usr/local/share/btop
+cp -r /tmp/btop-extract/themes /usr/local/share/btop/
+cp -r /tmp/btop-extract/locales /usr/local/share/btop/ 2>/dev/null || true
+rm -rf /tmp/btop-extract /tmp/btop.tbz
+echo -e "${GREEN}✓ btop installed${NC}"
+
+###############################################################################
 # 6. Install Cloudflared
 ###############################################################################
 echo -e "\n${YELLOW}[6/6] Installing Cloudflared...${NC}"
