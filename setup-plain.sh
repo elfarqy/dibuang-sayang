@@ -150,13 +150,20 @@ echo -e "${GREEN}✓ pnpm installed${NC}"
 usermod -aG docker $REGULAR_USER
 
 ###############################################################################
-# 5. Install Neovim
+# 5. Install Neovim (official build)
 ###############################################################################
-echo -e "\n${YELLOW}[5/6] Installing Neovim...${NC}"
+echo -e "\n${YELLOW}[5/8] Installing Neovim (official release)...${NC}"
 
-# Install Neovim from default OS package manager
-apt-get update
-apt-get install -y neovim
+# Debian/Ubuntu ships an outdated Neovim. Install the latest official build
+# straight from the Neovim GitHub releases instead.
+curl -fsSL -o /tmp/nvim.tar.gz "https://github.com/neovim/neovim/releases/latest/download/${NVIM_ASSET}"
+rm -rf /opt/nvim
+mkdir -p /opt/nvim
+# --strip-components=1 so contents land directly under /opt/nvim regardless of
+# the top-level directory name used inside the release tarball.
+tar -xzf /tmp/nvim.tar.gz -C /opt/nvim --strip-components=1
+rm -f /tmp/nvim.tar.gz
+ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
 
 # Set nvim as default editor for the user
 sudo -u $REGULAR_USER bash -c "
@@ -170,7 +177,7 @@ sudo -u $REGULAR_USER bash -c "
     echo 'syntax on' >> $USER_HOME/.config/nvim/init.vim
 "
 
-echo -e "${GREEN}✓ Neovim installed${NC}"
+echo -e "${GREEN}✓ Neovim installed ($(nvim --version | head -n1))${NC}"
 
 ###############################################################################
 # 6. Install Cloudflared
