@@ -2,7 +2,8 @@
 
 ###############################################################################
 # Development Stack Setup Script
-# Installs: Git, Node.js (via NVM), pnpm, Docker, Docker Compose, Neovim, Cloudflared
+# Installs: Git + git-flow, Node.js (via NVM), pnpm, Docker + Docker Compose,
+#           Neovim (official build), tmux, zsh + Oh My Zsh, lazygit, btop, Cloudflared
 # Run as: sudo bash setup.sh
 ###############################################################################
 
@@ -52,7 +53,7 @@ fi
 ###############################################################################
 # 1. System Update and Basic Packages
 ###############################################################################
-echo -e "\n${YELLOW}[1/6] Updating system and installing basic packages...${NC}"
+echo -e "\n${YELLOW}[1/8] Updating system and installing basic packages...${NC}"
 
 # Configure to keep local versions and avoid prompts
 echo 'libc6 libraries/restart-without-asking boolean true' | debconf-set-selections
@@ -67,7 +68,7 @@ apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--fo
 ###############################################################################
 # 2. Install Docker and Docker Compose
 ###############################################################################
-echo -e "\n${YELLOW}[2/6] Installing Docker and Docker Compose...${NC}"
+echo -e "\n${YELLOW}[2/8] Installing Docker and Docker Compose...${NC}"
 
 # Remove any old Docker repository files
 rm -f /etc/apt/sources.list.d/docker.list
@@ -105,7 +106,7 @@ echo -e "${GREEN}✓ Docker and Docker Compose installed${NC}"
 ###############################################################################
 # 3. Install NVM and Node.js LTS
 ###############################################################################
-echo -e "\n${YELLOW}[3/6] Installing NVM and Node.js LTS...${NC}"
+echo -e "\n${YELLOW}[3/8] Installing NVM and Node.js LTS...${NC}"
 
 # Determine the regular user (non-root) if script is run via sudo
 if [ -n "$SUDO_USER" ]; then
@@ -136,7 +137,7 @@ echo -e "${GREEN}✓ Node.js LTS installed${NC}"
 ###############################################################################
 # 4. Install pnpm
 ###############################################################################
-echo -e "\n${YELLOW}[4/6] Installing pnpm...${NC}"
+echo -e "\n${YELLOW}[4/8] Installing pnpm...${NC}"
 
 sudo -u $REGULAR_USER bash -c "
     export NVM_DIR=\"$USER_HOME/.nvm\"
@@ -222,9 +223,9 @@ chsh -s "$(command -v zsh)" "$REGULAR_USER" 2>/dev/null || \
 echo -e "${GREEN}✓ Oh My Zsh installed and zsh set as default shell${NC}"
 
 ###############################################################################
-# 6. Install Cloudflared
+# 8. Install Cloudflared
 ###############################################################################
-echo -e "\n${YELLOW}[6/6] Installing Cloudflared...${NC}"
+echo -e "\n${YELLOW}[8/8] Installing Cloudflared...${NC}"
 
 # Add Cloudflare GPG key
 mkdir -p --mode=0755 /usr/share/keyrings
@@ -240,9 +241,9 @@ apt-get install -y cloudflared
 echo -e "${GREEN}✓ Cloudflared installed${NC}"
 
 ###############################################################################
-# 7. Git Repository Setup (Optional)
+# Git Repository Setup (Optional)
 ###############################################################################
-echo -e "\n${YELLOW}[7/7] Git Repository Setup...${NC}"
+echo -e "\n${YELLOW}Git Repository Setup (Optional)...${NC}"
 
 # Ask for Git repository
 echo -e "${YELLOW}Do you want to clone a Git repository? (y/n)${NC}"
@@ -314,10 +315,12 @@ echo -e "User Home: ${GREEN}$USER_HOME${NC}"
 echo -e "Server IP: ${GREEN}$SERVER_IP${NC}"
 
 echo -e "\n${YELLOW}Installed Software:${NC}"
-echo -e "  ✓ Git"
+echo -e "  ✓ Git + git-flow"
 echo -e "  ✓ Node.js (via NVM) + pnpm"
 echo -e "  ✓ Docker + Docker Compose"
-echo -e "  ✓ Neovim"
+echo -e "  ✓ Neovim (official build)"
+echo -e "  ✓ tmux, zsh + Oh My Zsh"
+echo -e "  ✓ lazygit, btop"
 echo -e "  ✓ Cloudflared"
 
 echo -e "\n${YELLOW}To verify installations (switch to dev user first):${NC}"
@@ -327,6 +330,11 @@ echo -e "  Check pnpm: ${GREEN}pnpm --version${NC}"
 echo -e "  Check Docker: ${GREEN}docker --version${NC}"
 echo -e "  Check Docker Compose: ${GREEN}docker compose version${NC}"
 echo -e "  Check Neovim: ${GREEN}nvim --version${NC}"
+echo -e "  Check lazygit: ${GREEN}lazygit --version${NC}"
+echo -e "  Check btop: ${GREEN}btop --version${NC}"
+echo -e "  Check git-flow: ${GREEN}git flow version${NC}"
+echo -e "  Check tmux: ${GREEN}tmux -V${NC}"
+echo -e "  Check zsh: ${GREEN}zsh --version${NC}"
 echo -e "  Check Cloudflared: ${GREEN}cloudflared --version${NC}"
 
 echo -e "\n${YELLOW}Cloudflared Tunnel Setup:${NC}"
