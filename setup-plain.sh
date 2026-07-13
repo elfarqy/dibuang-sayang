@@ -206,6 +206,22 @@ rm -rf /tmp/btop-extract /tmp/btop.tbz
 echo -e "${GREEN}✓ btop installed${NC}"
 
 ###############################################################################
+# 7. Install Oh My Zsh and set zsh as default shell
+###############################################################################
+echo -e "\n${YELLOW}[7/8] Installing Oh My Zsh...${NC}"
+
+# Install Oh My Zsh for the regular user non-interactively.
+# CHSH=no / RUNZSH=no skip the "change shell" prompt and the post-install zsh launch.
+sudo -u "$REGULAR_USER" -H env HOME="$USER_HOME" RUNZSH=no CHSH=no \
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Make zsh the regular user's default login shell
+chsh -s "$(command -v zsh)" "$REGULAR_USER" 2>/dev/null || \
+    usermod -s "$(command -v zsh)" "$REGULAR_USER"
+
+echo -e "${GREEN}✓ Oh My Zsh installed and zsh set as default shell${NC}"
+
+###############################################################################
 # 6. Install Cloudflared
 ###############################################################################
 echo -e "\n${YELLOW}[6/6] Installing Cloudflared...${NC}"
