@@ -214,8 +214,12 @@ echo -e "\n${YELLOW}[7/8] Installing Oh My Zsh...${NC}"
 
 # Install Oh My Zsh for the regular user non-interactively.
 # CHSH=no / RUNZSH=no skip the "change shell" prompt and the post-install zsh launch.
-sudo -u "$REGULAR_USER" -H env HOME="$USER_HOME" RUNZSH=no CHSH=no \
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+# Run from the user's home: the installer does `cd -` back to its start dir, and
+# `sudo -u` keeps the current directory -- if this script runs from /root the
+# regular user can't cd back there, aborting the install before .zshrc is written.
+# ZSH= pins the install target even if ZSH is set in root's environment.
+sudo -u "$REGULAR_USER" -H env HOME="$USER_HOME" ZSH="$USER_HOME/.oh-my-zsh" RUNZSH=no CHSH=no \
+    bash -c 'cd "$HOME" && sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"'
 
 # Make zsh the regular user's default login shell
 chsh -s "$(command -v zsh)" "$REGULAR_USER" 2>/dev/null || \
