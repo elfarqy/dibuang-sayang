@@ -62,7 +62,7 @@ echo 'openssh-server openssh-server/permit-root-login boolean true' | debconf-se
 apt-get update
 apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-    curl wget git build-essential ca-certificates gnupg lsb-release
+    curl wget git build-essential ca-certificates gnupg lsb-release tmux zsh git-flow
 
 ###############################################################################
 # 2. Install Docker and Docker Compose
