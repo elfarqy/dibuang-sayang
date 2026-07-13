@@ -20,6 +20,25 @@ NC='\033[0m' # No Color
 # Configuration
 SERVER_IP=$(hostname -I | awk '{print $1}')
 
+# Detect CPU architecture for binary downloads (Neovim, lazygit, btop)
+CPU_ARCH=$(dpkg --print-architecture)
+case "$CPU_ARCH" in
+    amd64)
+        NVIM_ASSET="nvim-linux-x86_64.tar.gz"
+        LAZYGIT_ARCH="x86_64"
+        BTOP_ASSET="btop-x86_64-linux-musl.tbz"
+        ;;
+    arm64)
+        NVIM_ASSET="nvim-linux-arm64.tar.gz"
+        LAZYGIT_ARCH="arm64"
+        BTOP_ASSET="btop-aarch64-linux-musl.tbz"
+        ;;
+    *)
+        echo -e "${RED}Unsupported CPU architecture for binary downloads: $CPU_ARCH${NC}"
+        exit 1
+        ;;
+esac
+
 echo -e "${GREEN}================================${NC}"
 echo -e "${GREEN}Development Stack Setup${NC}"
 echo -e "${GREEN}================================${NC}"
