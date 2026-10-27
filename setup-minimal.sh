@@ -4,8 +4,12 @@
 # Minimal Dev Setup Script
 # Installs: Git, Neovim (official build), Lazygit, Docker + Docker Compose,
 #           Zsh + Oh My Zsh, btop
+# Hardens SSH against brute force (sshd limits + fail2ban) and enables
+# Docker log rotation.
 # Creates a user and stores credentials in /home/<user>/.user.credential
 # Run as: sudo bash setup-minimal.sh [username]
+# Optional: IGNORE_IPS="1.2.3.4 10.0.0.0/8" sudo -E bash setup-minimal.sh
+#           (IPs/CIDRs fail2ban must never ban, e.g. office/VPN)
 ###############################################################################
 
 set -e  # Exit on error
@@ -23,6 +27,7 @@ NC='\033[0m' # No Color
 SERVER_IP=$(hostname -I | awk '{print $1}')
 NEW_USER="${1:-deploy}"
 USER_HOME="/home/$NEW_USER"
+IGNORE_IPS="${IGNORE_IPS:-}"
 
 # Detect CPU architecture for binary downloads (Neovim, lazygit, btop)
 CPU_ARCH=$(dpkg --print-architecture)
@@ -63,7 +68,7 @@ fi
 ###############################################################################
 # 1. System Update and Basic Packages
 ###############################################################################
-echo -e "\n${YELLOW}[1/6] Updating system and installing basic packages...${NC}"
+echo -e "\n${YELLOW}[1/7] Updating system and installing basic packages...${NC}"
 
 # Configure to keep local versions and avoid prompts
 echo 'libc6 libraries/restart-without-asking boolean true' | debconf-set-selections
@@ -80,7 +85,7 @@ echo -e "${GREEN}✓ Git and Zsh installed${NC}"
 ###############################################################################
 # 2. Install Docker and Docker Compose
 ###############################################################################
-echo -e "\n${YELLOW}[2/6] Installing Docker and Docker Compose...${NC}"
+echo -e "\n${YELLOW}[2/7] Installing Docker and Docker Compose...${NC}"
 
 # Remove any old Docker repository files
 rm -f /etc/apt/sources.list.d/docker.list
@@ -109,17 +114,33 @@ echo \
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# Start and enable Docker
-systemctl start docker
-systemctl enable docker
+# Log rotation: the default json-file driver grows container logs without limit
+# and eventually fills the disk. Cap each container at 3 x 10MB.
+# Only applies to containers created after this; existing ones must be recreated.
+if [ -f /etc/docker/daemon.json ]; then
+    cp /etc/docker/daemon.json "/etc/docker/daemon.json.bak.$(date +%Y%m%d%H%M%S)"
+fi
+cat > /etc/docker/daemon.json <<'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
 
-echo -e "${GREEN}✓ Docker and Docker Compose installed${NC}"
+# Restart (not start): the package already started Docker with the old config
+systemctl enable docker
+systemctl restart docker
+
+echo -e "${GREEN}✓ Docker and Docker Compose installed (log rotation: 3 x 10MB per container)${NC}"
 
 ###############################################################################
 # 3. Create User and Store Credentials
 # Created before the per-user config steps below (nvim init.vim, Oh My Zsh)
 ###############################################################################
-echo -e "\n${YELLOW}[3/6] Creating user and storing credentials...${NC}"
+echo -e "\n${YELLOW}[3/7] Creating user and storing credentials...${NC}"
 
 if id "$NEW_USER" &>/dev/null; then
     echo -e "${YELLOW}User '$NEW_USER' already exists — resetting its password...${NC}"
@@ -147,7 +168,7 @@ CRED_FILE="$USER_HOME/.user.credential"
 cat > "$CRED_FILE" <<EOF
 # Server user credentials — created by setup-minimal.sh on $(date '+%Y-%m-%d %H:%M:%S')
 # WARNING: this file is plain text. Copy the password to your password manager
-# and DELETE this file afterwards!
+# and DELETE the "password:" line afterwards (keep the security notes below).
 
 username: $NEW_USER
 password: $PASSWORD
@@ -163,7 +184,7 @@ echo -e "${GREEN}✓ User '$NEW_USER' created (credentials in $CRED_FILE)${NC}"
 ###############################################################################
 # 4. Install Neovim (official build)
 ###############################################################################
-echo -e "\n${YELLOW}[4/6] Installing Neovim (official release)...${NC}"
+echo -e "\n${YELLOW}[4/7] Installing Neovim (official release)...${NC}"
 
 # Debian/Ubuntu ships an outdated Neovim. Install the latest official build
 # straight from the Neovim GitHub releases instead.
@@ -193,7 +214,7 @@ echo -e "${GREEN}✓ Neovim installed ($(nvim --version | head -n1))${NC}"
 ###############################################################################
 # 5. Install Lazygit and btop
 ###############################################################################
-echo -e "\n${YELLOW}[5/6] Installing Lazygit and btop...${NC}"
+echo -e "\n${YELLOW}[5/7] Installing Lazygit and btop...${NC}"
 
 # --- Lazygit (latest release from GitHub) ---
 # The version is embedded in the asset filename, so fetch it from the API first.
@@ -220,7 +241,7 @@ echo -e "${GREEN}✓ btop installed${NC}"
 ###############################################################################
 # 6. Install Oh My Zsh and set zsh as default shell
 ###############################################################################
-echo -e "\n${YELLOW}[6/6] Installing Oh My Zsh...${NC}"
+echo -e "\n${YELLOW}[6/7] Installing Oh My Zsh...${NC}"
 
 # Install Oh My Zsh for the user non-interactively.
 # CHSH=no / RUNZSH=no skip the "change shell" prompt and the post-install zsh launch.
@@ -236,6 +257,120 @@ chsh -s "$(command -v zsh)" "$NEW_USER" 2>/dev/null || \
     usermod -s "$(command -v zsh)" "$NEW_USER"
 
 echo -e "${GREEN}✓ Oh My Zsh installed and zsh set as default shell${NC}"
+
+###############################################################################
+# 7. SSH Brute-Force Protection (sshd limits + fail2ban)
+# Password login (incl. root) stays enabled since the root password is shared.
+# Bans are per IP, never per account: locking the shared root account would let
+# anyone lock the whole team out.
+###############################################################################
+echo -e "\n${YELLOW}[7/7] Hardening SSH against brute force...${NC}"
+
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+    openssh-server fail2ban python3-systemd
+
+# --- sshd limits ---
+# sshd uses the first value it reads for each option, so the 10- prefix wins over
+# cloud images' 50-cloud-init.conf (which often sets PasswordAuthentication no).
+# Note: sshd_config does not allow trailing comments on option lines.
+SSHD_DROPIN=/etc/ssh/sshd_config.d/10-hardening.conf
+if ! grep -qiE '^\s*Include\s+/etc/ssh/sshd_config\.d/' /etc/ssh/sshd_config; then
+    echo -e "${RED}/etc/ssh/sshd_config does not include sshd_config.d/ — skipping sshd limits${NC}"
+else
+    cat > "$SSHD_DROPIN" <<'EOF'
+# Created by setup-minimal.sh
+PermitRootLogin yes
+PasswordAuthentication yes
+PermitEmptyPasswords no
+# Drop the connection after 3 wrong passwords
+MaxAuthTries 3
+# 30s to authenticate, then disconnect
+LoginGraceTime 30
+# Throttle floods of unauthenticated connections
+MaxStartups 10:30:60
+EOF
+    # Validate before restarting so a bad config can't take SSH down
+    mkdir -p /run/sshd
+    if sshd -t; then
+        systemctl restart ssh 2>/dev/null || systemctl restart sshd
+        echo -e "${GREEN}✓ sshd limits applied ($SSHD_DROPIN)${NC}"
+    else
+        rm -f "$SSHD_DROPIN"
+        echo -e "${RED}sshd config test failed — removed $SSHD_DROPIN, SSH left unchanged${NC}"
+    fi
+fi
+
+# --- fail2ban ---
+# 5 failures within 10 min -> ban. Repeat offenders get doubled bans
+# (1h, 2h, 4h ... capped at 1 week). Ban history is kept for 1 week
+# (dbpurgeage) so the escalation doesn't reset after the default 1 day.
+# backend=systemd: Debian 12+/Ubuntu 24.04 log sshd to journald, not auth.log.
+# Bans are written straight to iptables/nftables, no ufw needed.
+cat > /etc/fail2ban/jail.local <<EOF
+# Created by setup-minimal.sh
+[DEFAULT]
+backend = systemd
+bantime = 1h
+bantime.increment = true
+bantime.maxtime = 1w
+findtime = 10m
+maxretry = 5
+dbpurgeage = 1w
+ignoreip = 127.0.0.1/8 ::1 $IGNORE_IPS
+
+[sshd]
+enabled = true
+mode = aggressive
+EOF
+
+systemctl enable fail2ban
+systemctl restart fail2ban
+
+echo -e "${GREEN}✓ fail2ban enabled (5 fails / 10 min -> ban 1h, doubling up to 1 week)${NC}"
+
+# --- Document everything in the credentials file ---
+cat >> "$CRED_FILE" <<EOF
+
+###############################################################################
+# Server security notes
+###############################################################################
+
+## SSH login
+Password login is ENABLED (root and users) because the root password is shared.
+Limits ($SSHD_DROPIN):
+  - MaxAuthTries 3      -> connection dropped after 3 wrong passwords
+  - LoginGraceTime 30   -> 30 seconds to log in, then disconnected
+  - MaxStartups 10:30:60 -> floods of unauthenticated connections are throttled
+Check config:   sshd -t
+Apply changes:  systemctl restart ssh
+
+## fail2ban (bans by IP, never locks the account)
+Config: /etc/fail2ban/jail.local
+Rule: 5 failed attempts within 10 minutes -> IP is banned.
+Ban length doubles for repeat offenders, capped at 1 week:
+  1st 1h | 2nd 2h | 3rd 4h | 4th 8h | 5th 16h | 6th ~1.3d | 7th ~2.7d | 8th ~5.3d | 9th+ 1w
+Ban history is kept 1 week (dbpurgeage), and bans survive restarts.
+Never banned (ignoreip): 127.0.0.1/8 ::1 ${IGNORE_IPS:-(none set)}
+
+If a teammate mistypes the password 5 times, they are locked out for 1 hour.
+  Show banned IPs:    fail2ban-client status sshd
+  Unban an IP:        fail2ban-client set sshd unbanip <IP>
+  Whitelist an IP:    add it to "ignoreip" in /etc/fail2ban/jail.local,
+                      then: systemctl restart fail2ban
+  Ban log:            journalctl -u fail2ban
+
+## Docker log rotation
+Config: /etc/docker/daemon.json (json-file, max 3 files x 10MB per container)
+Only applies to containers created after setup; recreate older ones:
+  docker compose up -d --force-recreate
+Check a container:  docker inspect -f '{{.HostConfig.LogConfig}}' <container>
+
+## Not configured (intentionally)
+  - Firewall (ufw): ports depend on what the server will run
+  - unattended-upgrades: avoid surprise version changes / breaking updates
+EOF
+
+echo -e "${GREEN}✓ Security notes written to $CRED_FILE${NC}"
 
 ###############################################################################
 # Final Output
@@ -258,6 +393,14 @@ echo -e "  ✓ Docker + Docker Compose"
 echo -e "  ✓ Zsh + Oh My Zsh"
 echo -e "  ✓ btop"
 
+echo -e "\n${YELLOW}Security:${NC}"
+echo -e "  ✓ sshd limits (MaxAuthTries 3, LoginGraceTime 30, MaxStartups 10:30:60)"
+echo -e "  ✓ fail2ban (5 fails / 10 min -> ban 1h, doubling up to 1 week)"
+echo -e "  ✓ Docker log rotation (3 x 10MB per container)"
+echo -e "  Ignored by fail2ban: ${GREEN}127.0.0.1/8 ::1 ${IGNORE_IPS}${NC}"
+echo -e "  Details and unban commands: ${GREEN}$CRED_FILE${NC}"
+echo -e "  ${RED}Before closing this session, test SSH login from a second terminal.${NC}"
+
 echo -e "\n${YELLOW}To verify installations (switch to user first):${NC}"
 echo -e "  Switch to user: ${GREEN}su - $NEW_USER${NC}"
 echo -e "  Check Git: ${GREEN}git --version${NC}"
@@ -270,6 +413,6 @@ echo -e "  Check zsh: ${GREEN}zsh --version${NC}"
 
 echo -e "\n${RED}Security note:${NC}"
 echo -e "  $CRED_FILE contains the password in plain text."
-echo -e "  Copy it somewhere safe, then delete it: ${GREEN}rm $CRED_FILE${NC}"
+echo -e "  Copy it somewhere safe, then remove that line: ${GREEN}sed -i '/^password:/d' $CRED_FILE${NC}"
 
 echo -e "\n${GREEN}Setup completed successfully!${NC}\n"
